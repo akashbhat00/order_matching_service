@@ -1,0 +1,240 @@
+openapi: 3.0.0
+info:
+  title: Order Matching Service
+  version: 1.0.0
+  description: A service for matching buyers with sellers based on price and quantity.
+
+paths:
+  /sellers:
+    post:
+      summary: Create a new seller profile
+      description: Create a new seller profile to list products.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seller_name:
+                  type: string
+                seller_email:
+                  type: string
+      responses:
+        '201':
+          description: Seller profile created successfully.
+        '400':
+          description: Bad request. Invalid input data.
+        '500':
+          description: Internal server error.
+
+  /buyers:
+    post:
+      summary: Create a new buyer profile
+      description: Create a new buyer profile to place orders.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                buyer_name:
+                  type: string
+                buyer_email:
+                  type: string
+      responses:
+        '201':
+          description: Buyer profile created successfully.
+        '400':
+          description: Bad request. Invalid input data.
+        '500':
+          description: Internal server error.
+
+  /orders:
+    post:
+      summary: Place a new order
+      description: Place a new order to buy a product.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                buyer_id:
+                  type: integer
+                product_name:
+                  type: string
+                quantity:
+                  type: integer
+      responses:
+        '201':
+          description: Order placed successfully.
+        '400':
+          description: Bad request. Invalid input data.
+        '404':
+          description: Product not found or insufficient quantity.
+        '500':
+          description: Internal server error.
+
+    get:
+      summary: Get a list of all orders
+      description: Retrieve a list of all orders made by buyers.
+      responses:
+        '200':
+          description: List of orders retrieved successfully.
+        '500':
+          description: Internal server error.
+
+  /match:
+    get:
+      summary: Match buyers with sellers
+      description: Find and match buyers with sellers based on price and quantity.
+      parameters:
+        - name: product_id
+          in: query
+          description: ID of the product to match.
+          required: true
+          schema:
+            type: integer
+        - name: quantity
+          in: query
+          description: Desired quantity to buy.
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Matching successful. List of matched sellers retrieved.
+        '400':
+          description: Bad request. Invalid input data.
+        '404':
+          description: No matching sellers found.
+        '500':
+          description: Internal server error.
+          
+
+  /sellers/{seller_id}/products:
+    post:
+      summary: Add a product to product listing
+      description: Add a product to product listing for listing.
+      parameters:
+        - name: seller_id
+          in: path
+          description: ID of the seller to which the product will be added.
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                    type: object
+                    properties:
+                      product_name:
+                        type: string
+                      product_price:
+                        type: number
+                      product_quantity:
+                        type: integer
+                  
+      responses:
+        '201':
+          description: Product added successfully to the seller's profile.
+        '400':
+          description: Bad request. Invalid input data.
+        '404':
+          description: Seller not found.
+        '500':
+          description: Internal server error.
+
+  /sellers/{seller_id}:
+    get:
+      summary: Get seller profile by ID
+      description: Retrieve the profile of a seller by their unique ID.
+      parameters:
+        - name: seller_id
+          in: path
+          description: ID of the seller profile to retrieve.
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Seller profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  seller_id:
+                    type: integer
+                    description: Unique ID of the seller.
+                  seller_name:
+                    type: string
+                    description: Name of the seller.
+                  seller_email:
+                    type: string
+                    description: Email address of the seller.
+                  products:
+                    type: array
+                    description: List of products listed by the seller.
+                    items:
+                      type: object
+                      properties:
+                        product_id:
+                          type: integer
+                          description: Unique ID of the product.
+                        product_name:
+                          type: string
+                          description: Name of the product.
+                        product_price:
+                          type: number
+                          description: Price of the product.
+                        product_quantity:
+                          type: integer
+                          description: Available quantity of the product.
+        '404':
+          description: Seller not found.
+        '500':
+          description: Internal server error.
+          
+  /buyers/{buyer_id}:
+    get:
+      summary: Get buyer profile by ID
+      description: Retrieve the profile of a buyer by their unique ID.
+      parameters:
+        - name: buyer_id
+          in: path
+          description: ID of the buyer profile to retrieve.
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Buyer profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  buyer_id:
+                    type: integer
+                    description: Unique ID of the buyer.
+                  buyer_name:
+                    type: string
+                    description: Name of the buyer.
+                  buyer_email:
+                    type: string
+                    description: Email address of the buyer.
+        '404':
+          description: Buyer not found.
+        '500':
+          description: Internal server error.
+
+
+
