@@ -3,83 +3,78 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 
-	"github.com/go-gorp/gorp"
-	_redis "github.com/go-redis/redis/v7"
-	_ "github.com/lib/pq" //import postgres
+	"bitbucket.org/liamstask/goose/lib/goose"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
-//DB ...
-type DB struct {
-	*sql.DB
-}
 
-var db *gorp.DbMap
+var gormDB *gorm.DB
+var err error
 
-//Init ...
+// DB ...
+type DB struct{}
+
 func Init() {
+	dbUserName := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASS")
+	dbHost := os.Getenv("DB_HOST")
+	dbName := os.Getenv("DB_NAME")
+	dbURI := fmt.Sprintf("host=%s user=%s dbname=%s sslmode=disable password=%s", dbHost, dbUserName, dbName, dbPassword) //Build connection string
 
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", os.Getenv("DB_USER"), os.Getenv("DB_PASS"), os.Getenv("DB_NAME"))
+	pqDB, err := sql.Open("postgres", dbURI)
 
-	var err error
-	db, err = ConnectDB(dbinfo)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Failed to connect to DB", dbURI, err.Error())
+		os.Exit(1)
 	}
-
-}
-
-//ConnectDB ...
-func ConnectDB(dataSourceName string) (*gorp.DbMap, error) {
-	db, err := sql.Open("postgres", dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = db.Ping(); err != nil {
-		return nil, err
-	}
-
-	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}
-	//dbmap.TraceOn("[gorp]", log.New(os.Stdout, "golang-gin:", log.Lmicroseconds)) //Trace database requests
-	return dbmap, nil
-}
-
-//GetDB ...
-func GetDB() *gorp.DbMap {
-	return db
-}
-
-//RedisClient ...
-var RedisClient *_redis.Client
-
-//InitRedis ...
-func InitRedis(selectDB ...int) {
-
-	var redisHost = os.Getenv("REDIS_HOST")
-	var redisPassword = os.Getenv("REDIS_PASSWORD")
-
-	RedisClient = _redis.NewClient(&_redis.Options{
-		Addr:     redisHost,
-		Password: redisPassword,
-		DB:       selectDB[0],
-		// DialTimeout:        10 * time.Second,
-		// ReadTimeout:        30 * time.Second,
-		// WriteTimeout:       30 * time.Second,
-		// PoolSize:           10,
-		// PoolTimeout:        30 * time.Second,
-		// IdleTimeout:        500 * time.Millisecond,
-		// IdleCheckFrequency: 500 * time.Millisecond,
-		// TLSConfig: &tls.Config{
-		// 	InsecureSkipVerify: true,
-		// },
+	gormDB, err = gorm.Open(postgres.New(postgres.Config{
+		Conn: pqDB,
+	}), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+		},
 	})
 
+	if err != nil {
+		fmt.Println("Failed to connect to DB", dbURI, err.Error())
+		os.Exit(1)
+	}
+	workingDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Not able to fetch the working directory")
+		os.Exit(1)
+	}
+
+	workingDir = workingDir + "/db/migrations"
+	migrateConf := &goose.DBConf{
+		MigrationsDir: workingDir,
+		Driver: goose.DBDriver{
+			Name:    "postgres",
+			OpenStr: dbURI,
+			Import:  "github.com/lib/pq",
+			Dialect: &goose.PostgresDialect{},
+		},
+	}
+	fmt.Println("Fetching the most recent DB version")
+	latest, err := goose.GetMostRecentDBVersion(migrateConf.MigrationsDir)
+	if err != nil {
+		fmt.Println("Unable to get recent goose db version", err)
+
+	}
+	fmt.Println(" Most recent DB version ", latest)
+	fmt.Println("Running the migrations on db", workingDir)
+	err = goose.RunMigrationsOnDb(migrateConf, migrateConf.MigrationsDir, latest, pqDB)
+	if err != nil {
+		fmt.Println("Error while running migrations", err)
+		os.Exit(1)
+	}
 }
 
-//GetRedis ...
-func GetRedis() *_redis.Client {
-	return RedisClient
+// GetDB : Get an instance of DB to connect to the database connection pool
+func (d DB) GetDB() *gorm.DB {
+	return gormDB
 }
